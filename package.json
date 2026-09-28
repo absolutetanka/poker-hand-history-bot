@@ -1,0 +1,21 @@
+{
+  "name": "poker-hand-history-bot",
+  "version": "0.1.0",
+  "description": "Discord bot that turns typed or spoken poker hand descriptions into a consistent hand-history format.",
+  "type": "module",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test",
+    "parse": "node scripts/parse.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8"
+  }
+}
