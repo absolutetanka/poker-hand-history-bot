@@ -37,7 +37,7 @@ test('canonical hand validates', () => {
 });
 
 test('rejects malformed hands', () => {
-  assert.throws(() => HandHistorySchema.parse({ ...canonicalHand, villains: undefined }));
+  assert.throws(() => HandHistorySchema.parse({ ...canonicalHand, players: undefined }));
   assert.throws(() =>
     HandHistorySchema.parse({ ...canonicalHand, flop: { cards: ['A', 'K', 'Q', 'J'], texture: null, actions: [] } })
   );

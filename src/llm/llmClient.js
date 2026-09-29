@@ -152,6 +152,11 @@ export function createLLMParser({
 
     // OpenRouter can return 200 with an error object when the upstream model fails.
     if (data?.error) {
+      if (reasoningOff && /reasoning is mandatory/i.test(JSON.stringify(data.error))) {
+        const error = new LLMParseError('Model requires reasoning; retrying with reasoning allowed');
+        error.reasoningRequired = true;
+        throw error;
+      }
       throw new LLMParseError(`OpenRouter upstream error: ${JSON.stringify(data.error).slice(0, 500)}`, {
         retryable: true
       });

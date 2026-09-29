@@ -2,27 +2,36 @@ import { HAND_HISTORY_JSON_SCHEMA } from './handHistorySchema.js';
 
 export const PARSER_INSTRUCTIONS = `You are a poker hand-history parser. Transform USER_TEXT into the supplied HAND_HISTORY_SCHEMA.
 
-Rules:
-- Never invent information. If the user did not say it, do not include it.
-- Use null when a scalar value is unknown.
-- Use [] when an action list has no known actions.
-- Use null for a street (flop, turn, river) the hand never reached or that was not described at all.
-- Add important absent information to "missing", but only information relevant to the hand as described (e.g. "pot size", "stack sizes", "bet sizes", "villain hand"). Do not list every theoretically possible field.
-- Normalize common poker terminology:
-  BB -> big blind, SB -> small blind, BTN -> button, CO -> cutoff, HJ -> hijack, LJ -> lojack, UTG -> under the gun, MP -> middle position
-  NLH / NL / no limit holdem -> no-limit hold'em, LHE -> limit hold'em, PLO -> pot-limit Omaha
-  2.5bb -> 2.5 big blinds
-- Write positions in "hero.position" and "villains[].position" as lowercase full names (e.g. "cutoff").
-- Write hole cards compactly: "K3o" (offsuit), "86s" (suited), "AA" (pair), or exact cards like "Ks3h" when specific suits are given. Only use "s"/"o" when the user stated or clearly implied suitedness. Never guess suits.
-- Write board cards as ranks, or rank+suit when suits are given: "K", "9", "4" or "Kh", "9c", "4d". Use "T" for ten.
-- Put texture words (rainbow, monotone, two-tone, paired) in flop.texture, e.g. "K94r" -> cards ["K","9","4"], texture "rainbow".
-- Write actions as short sentences without trailing periods, naming the player by position or "Hero", e.g. "Cutoff opens to 2.5 big blinds", "Big blind calls".
-- Preserve meaningful action sizes exactly as stated. Keep chip amounts (e.g. "$5", "5") distinct from big-blind amounts ("2.5 big blinds"); do not convert between them.
-- If a size was not given, do not assume one: "CO opened and I called" -> ["Cutoff opens", "Hero calls"].
-- Do not infer stack sizes, suits, pot size, bet sizes, winner, positions, or effective stack.
-- Do not calculate pot size.
-- Stakes: write in the "1/2" style when possible ("one two" -> "1/2").
-- Return JSON only. No markdown, no commentary.`;
+Core rule: never invent information. If the user did not say it, use null (scalars) or [] (lists).
+
+Players:
+- List every player mentioned in the hand, including Hero ("I", "me", "hero") with is_hero true. Do not add players who are not mentioned.
+- Positions as abbreviations: UTG, UTG+1, UTG+2, LJ, HJ, CO, BTN, SB, BB, MP, EP. (cutoff -> CO, button/dealer -> BTN, big blind -> BB, small blind -> SB, hijack -> HJ, lojack -> LJ, under the gun -> UTG). null if unknown.
+- stack / effective_stack only when stated ("100bb effective" -> effective_stack {100, "bb"}; "300 effective" -> {300, "chips"}).
+- An effective stack is NOT a player stack: leave players[].stack null unless that player's own stack was stated.
+
+Cards (standard notation, T for ten):
+- Exact cards when suits are given: "Ks3h", "AsKd".
+- Otherwise: "K3o" (offsuit), "86s" (suited), "AA" (pair), or "K3" if suitedness is unknown. "king three of spades" -> "K3s".
+- Board: ["K","9","4"] when only ranks are given, ["Kh","9c","4d"] when suits are given. Put rainbow / two-tone / monotone / paired in flop.texture.
+- Shorthand boards give ranks only: "K94r" -> ["K","9","4"] with texture "rainbow"; "QJ8ss" / "two-tone" -> ranks only. Only write a suit letter when that exact suit was said.
+- Never guess or invent suits, on the board or in hands.
+
+Actions (in the order they happened; one object per action):
+- player: the position abbreviation, or "Hero" for the hero.
+- action: fold | check | call | bet | raise | all-in. "opens", "makes it", "3-bets", "isos" are raises.
+- amount: for bet / raise / all-in, the TOTAL amount that player has put in on that street ("raises to"). null for fold / check / call, and null when the size was not stated.
+- Units: "bb" / "big blinds" / "x" (preflop open sizes like "3x") -> unit "bb". Plain numbers or dollars -> unit "chips". "CO makes it 5" -> {5, "chips"}. "opens to 2.5bb" -> {2.5, "bb"}.
+- Do not include blind posts. Only include folds the user mentioned.
+- "CO opened and I called" -> [{CO raise null}, {Hero call null}]. Never assume a size.
+
+Other fields:
+- stakes in "1/2" style ("one two" -> "1/2"; keep "$" only if the user used dollars).
+- game: e.g. "no-limit hold'em", "pot-limit Omaha".
+- showdown: only players the user said showed (cards) or mucked (cards null). Do not add a muck for the loser.
+- winner: position or "Hero", only if stated.
+
+Return JSON only. No markdown, no commentary.`;
 
 export function buildUserMessage(text) {
   return [

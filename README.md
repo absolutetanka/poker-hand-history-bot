@@ -18,20 +18,25 @@ Discord message ─┬─ text ────────────────�
 The bot replies:
 
 ```text
-Game: no-limit hold'em
-Stakes: 1/2
+NLH 1/2 · Effective: ?
 
-Hero: big blind — King-3 offsuit
-Villain: cutoff — 8-6 suited
+Hero (BB): K3o
+CO: 86s (shown)
 
-Preflop: Cutoff opens to 2.5 big blinds. Big blind calls.
-Flop: King-9-4, rainbow
-Turn: Ace
+Preflop (1.5bb): CO raises to 2.5bb, Hero calls.
+Flop (5.5bb): K94r
+Turn: A
 River: 2
-Showdown: Cutoff shows 8-6 suited
+Showdown: CO shows 86s.
 
-Missing: pot size, stack sizes
+Missing: stacks, postflop action
 ```
+
+The output follows forum hand-review conventions:
+- **Card notation** is standard: `Ks3h`, `K3o`, `86s`, and boards like `Kh 9c 4d` or `K94r`. Suits are never guessed.
+- **Positions** are abbreviations (UTG, HJ, CO, BTN, SB, BB), and sizes are in big blinds.
+- **The pot at the start of each street** is calculated by the bot, not the LLM. It's shown only when every amount before it is known. Blinds count as posted, and antes and straddles aren't supported yet.
+- **The Missing line** is built by the bot from what's actually absent.
 
 While it works, the bot reacts to your message: 👀 while processing, ✅ when parsed, ⚠️ when parsed but information is missing, and ❌ when it failed.
 
@@ -95,8 +100,9 @@ src/
   llm/prompt.js               Parser rules sent to the LLM
   llm/handHistorySchema.js    Zod schema + strict JSON Schema (kept in sync by tests)
   stt/                        STT adapter interface + providers
-  poker/normalization.js      Deterministic notation normalization (K3o → King-3 offsuit)
-  poker/formatter.js          Deterministic Discord output
+  poker/normalization.js      Standard notation: cards (Ks3h, K3o), boards (K94r), positions (CO)
+  poker/handState.js          Replays the action: pot per street, effective stack, missing info
+  poker/formatter.js          Deterministic forum-style Discord output
 scripts/parse.js              CLI for the text pipeline
 test/                         node:test suites (no network)
 ```

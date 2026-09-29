@@ -5,7 +5,7 @@ import { createInputResolver } from '../src/discord/inputResolver.js';
 import { MESSAGES, REACTIONS, createMessageHandler, splitForDiscord } from '../src/discord/messageHandler.js';
 import { SpeechToTextError } from '../src/stt/SpeechToTextProvider.js';
 import { createLogger } from '../src/utils/logger.js';
-import { canonicalHand, canonicalOutput } from './fixtures.js';
+import { canonicalHand, canonicalOutput, fullHand } from './fixtures.js';
 
 const CHANNEL = '111';
 const silent = createLogger('silent');
@@ -134,7 +134,7 @@ test('STT failure produces a clean voice-specific error reply', async () => {
 });
 
 test('complete hand with nothing missing gets a success reaction', async () => {
-  const { handler } = setup({ parseHand: async () => ({ ...canonicalHand, missing: [] }) });
+  const { handler } = setup({ parseHand: async () => fullHand });
   const message = fakeMessage({ content: 'hand' });
   await handler(message);
   assert.equal(message.reactionsAdded.at(-1), REACTIONS.success);

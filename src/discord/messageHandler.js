@@ -1,5 +1,6 @@
 import { HandHistorySchema } from '../llm/handHistorySchema.js';
 import { formatHandHistory } from '../poker/formatter.js';
+import { analyzeHand } from '../poker/handState.js';
 import { findAudioAttachment } from './inputResolver.js';
 
 export const REACTIONS = {
@@ -114,7 +115,7 @@ export function createMessageHandler({
 
       await reply(message, output);
       await clearProcessing(message);
-      await react(message, validatedHand.missing.length ? REACTIONS.missing : REACTIONS.success);
+      await react(message, analyzeHand(validatedHand).missing.length ? REACTIONS.missing : REACTIONS.success);
     } catch (error) {
       let text = MESSAGES.parseFailed;
       if (error?.code === 'STT_DISABLED') {
