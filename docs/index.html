@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HandHistory · Poker hand histories for Discord</title>
+  <meta name="description" content="Post a poker hand in plain words or a voice note, and HandHistory turns it into a clean, forum-style hand history in your Discord server.">
+  <link rel="icon" type="image/png" href="avatar.png">
+
+  <!-- Link previews (Discord, social) -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="HandHistory · Poker hand histories for Discord">
+  <meta property="og:description" content="Type or say a poker hand. Get a clean, review-ready hand history.">
+  <meta property="og:image" content="https://absolutetanka.github.io/poker-hand-history-bot/avatar.png">
+  <meta property="og:url" content="https://absolutetanka.github.io/poker-hand-history-bot/">
+  <meta name="theme-color" content="#0b3d25">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #f6f4ee;
+      --surface: #ffffff;
+      --text: #15201a;
+      --muted: #56645b;
+      --border: #dcd8cc;
+      --felt: #146c43;
+      --felt-deep: #0b3d25;
+      --gold: #b8923a;
+      --button: #5865f2;
+      --button-hover: #4752c4;
+      --code-bg: #0f1f17;
+      --code-text: #e4efe7;
+      --code-dim: #8fb3a0;
+      --red: #d6454d;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #0c1511;
+        --surface: #131f19;
+        --text: #e8efe9;
+        --muted: #9db0a4;
+        --border: #24362c;
+        --felt: #1f8a55;
+        --felt-deep: #0b3d25;
+        --gold: #d8b25a;
+        --code-bg: #08110c;
+        --code-text: #e4efe7;
+        --code-dim: #7fa592;
+        --red: #ef6a70;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.6 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    a { color: var(--felt); }
+    @media (prefers-color-scheme: dark) { a { color: #5fd09a; } }
+
+    .wrap { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+
+    /* Hero */
+    .hero {
+      background:
+        radial-gradient(ellipse at 50% 0%, #1f8a55 0%, var(--felt-deep) 70%);
+      color: #f3f7f4;
+      padding: 72px 0 88px;
+      text-align: center;
+      position: relative;
+    }
+    .hero::after {
+      content: "";
+      position: absolute; inset: auto 0 0 0; height: 6px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      opacity: .6;
+    }
+    .avatar {
+      width: 120px; height: 120px; border-radius: 50%;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      border: 3px solid rgba(216,178,90,.6);
+    }
+    .hero h1 {
+      font-size: clamp(2.2rem, 6vw, 3.4rem);
+      line-height: 1.1; margin: 20px 0 12px; letter-spacing: -0.02em;
+    }
+    .hero p.lead {
+      font-size: clamp(1.05rem, 2.6vw, 1.25rem);
+      max-width: 620px; margin: 0 auto 32px; color: #d3e3d9;
+    }
+    .cta {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--button); color: #fff; text-decoration: none;
+      font-weight: 600; font-size: 1.1rem;
+      padding: 14px 28px; border-radius: 10px;
+      box-shadow: 0 6px 18px rgba(88,101,242,.4);
+      transition: background .15s, transform .15s;
+    }
+    .cta:hover { background: var(--button-hover); transform: translateY(-1px); }
+    .cta svg { width: 24px; height: 24px; }
+    .hero .sub { margin-top: 14px; font-size: .9rem; color: #a9c4b4; }
+    .hero .sub a { color: #d3e3d9; }
+
+    /* Sections */
+    section { padding: 64px 0; }
+    section + section { border-top: 1px solid var(--border); }
+    h2 { font-size: 1.7rem; margin: 0 0 8px; letter-spacing: -0.01em; }
+    .section-lead { color: var(--muted); margin: 0 0 32px; }
+
+    /* Example */
+    .example {
+      display: grid; gap: 20px;
+      grid-template-columns: 1fr 1.3fr;
+      align-items: stretch;
+    }
+    @media (max-width: 760px) { .example { grid-template-columns: 1fr; } }
+    .bubble, .result {
+      border-radius: 12px; padding: 18px 20px; min-width: 0;
+    }
+    .bubble {
+      background: var(--surface); border: 1px solid var(--border);
+    }
+    .label {
+      font-size: .75rem; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+    }
+    .result { background: var(--code-bg); color: var(--code-text); }
+    .result .label { color: var(--code-dim); }
+    .result pre {
+      margin: 0; white-space: pre-wrap; word-break: break-word;
+      font: 14px/1.65 "JetBrains Mono", ui-monospace, Consolas, monospace;
+    }
+    .result .dim { color: var(--code-dim); }
+
+    /* Steps + features */
+    .grid {
+      display: grid; gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    @media (max-width: 860px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 520px) { .grid-4 { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px;
+    }
+    .card h3 { margin: 0 0 6px; font-size: 1.05rem; }
+    .card p { margin: 0; color: var(--muted); font-size: .95rem; }
+    .num {
+      display: inline-grid; place-items: center;
+      width: 30px; height: 30px; border-radius: 50%;
+      background: var(--felt); color: #fff; font-weight: 700; font-size: .9rem;
+      margin-bottom: 10px;
+    }
+    code {
+      font-family: "JetBrains Mono", ui-monospace, Consolas, monospace;
+      font-size: .9em; background: var(--bg); border: 1px solid var(--border);
+      padding: 1px 6px; border-radius: 6px;
+    }
+
+    /* Footer CTA + footer */
+    .final { text-align: center; }
+    .final .cta { margin-top: 8px; }
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 28px 0 40px; color: var(--muted); font-size: .9rem;
+    }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
+    footer nav { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+    footer a { color: var(--muted); }
+  </style>
+</head>
+<body>
+
+  <header class="hero">
+    <div class="wrap">
+      <img class="avatar" src="avatar.png" alt="HandHistory bot avatar: an ace of spades with a hand-history sheet and a poker chip">
+      <h1>HandHistory</h1>
+      <p class="lead">Type or say a poker hand in plain words. HandHistory turns it into a clean, forum-style hand history, right in your Discord server.</p>
+      <a class="cta" href="https://discord.com/oauth2/authorize?client_id=1554264654241472564">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 3l-.6 1.3a18.4 18.4 0 0 0-5.5 0L8.6 3a19.7 19.7 0 0 0-4.9 1.5C.6 9 -.3 13.5.1 17.9a19.9 19.9 0 0 0 6 3l1.3-2.1a12.9 12.9 0 0 1-2-1l.5-.4a14.2 14.2 0 0 0 12.2 0l.5.4c-.6.4-1.3.7-2 1l1.3 2.1a19.8 19.8 0 0 0 6-3c.5-5.1-.8-9.6-3.6-13.5ZM8 15.2c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4Zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4Z"/></svg>
+        Add to Discord
+      </a>
+      <p class="sub">Free · Needs <strong>Manage Server</strong> to add · <a href="#how">How it works</a></p>
+    </div>
+  </header>
+
+  <main>
+    <section id="example">
+      <div class="wrap">
+        <h2>From a rambling description to a clean history</h2>
+        <p class="section-lead">No forms and no hand-history file. Just describe the hand the way you'd tell a friend.</p>
+        <div class="example">
+          <div class="bubble">
+            <div class="label">You post</div>
+            2/5 NLH, 300 effective. Hero on the button with AsQs. UTG opens to 15, hero 3-bets to 45, UTG calls. Flop Qh 7c 2d. UTG checks, hero bets 50, UTG calls. Turn 5s check check. River Kc, UTG bets 120, hero calls. UTG shows KdQc, wins.
+          </div>
+          <div class="result">
+            <div class="label">HandHistory replies</div>
+<pre>NLH 2/5 · Effective: 300 (60bb)
+
+Hero (BTN): AsQs
+UTG: KdQc (shown)
+
+Preflop (1.4bb): UTG raises to 3bb, Hero 3-bets to 9bb, UTG calls.
+Flop (19.4bb): Qh 7c 2d · UTG checks, Hero bets 10bb, UTG calls.
+Turn (39.4bb): 5s · UTG checks, Hero checks.
+River (39.4bb): Kc · UTG bets 24bb, Hero calls.
+Showdown (87.4bb): UTG shows KdQc. UTG wins.</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="how">
+      <div class="wrap">
+        <h2>How it works</h2>
+        <p class="section-lead">Set up in under a minute.</p>
+        <div class="grid">
+          <div class="card">
+            <div class="num">1</div>
+            <h3>Add the bot</h3>
+            <p>Click <strong>Add to Discord</strong> and pick your server.</p>
+          </div>
+          <div class="card">
+            <div class="num">2</div>
+            <h3>Pick a channel</h3>
+            <p>Run <code>/setup add #channel</code>, and every hand posted there gets formatted automatically.</p>
+          </div>
+          <div class="card">
+            <div class="num">3</div>
+            <h3>Post a hand</h3>
+            <p>Type it, send a voice note, or use <code>/hand</code> in any channel.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <div class="wrap">
+        <h2>Built for hand review</h2>
+        <p class="section-lead">Follows the conventions used on poker forums and in study groups.</p>
+        <div class="grid grid-4">
+          <div class="card">
+            <h3>Standard notation</h3>
+            <p>Cards like <code>Ks3h</code>, <code>K3o</code> and <code>K94r</code>, and positions like CO and BTN. Ready to paste into solvers.</p>
+          </div>
+          <div class="card">
+            <h3>Pot on every street</h3>
+            <p>Calculated from the action in big blinds, and only shown when every bet is known.</p>
+          </div>
+          <div class="card">
+            <h3>Voice notes</h3>
+            <p>Talk through the hand instead of typing it. It's transcribed and formatted the same way.</p>
+          </div>
+          <div class="card">
+            <h3>No guessing</h3>
+            <p>Anything you left out (stacks, sizes, suits) is flagged as <em>Missing</em>, never made up.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="final">
+      <div class="wrap">
+        <h2>Ready to review better hands?</h2>
+        <p class="section-lead">Free to use. Type <code>/help</code> after adding it.</p>
+        <a class="cta" href="https://discord.com/oauth2/authorize?client_id=1554264654241472564">Add HandHistory to Discord</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>HandHistory: formats hands, doesn't give poker advice.</span>
+      <nav>
+        <a href="https://github.com/absolutetanka/poker-hand-history-bot/blob/main/TERMS.md">Terms</a>
+        <a href="https://github.com/absolutetanka/poker-hand-history-bot/blob/main/PRIVACY.md">Privacy</a>
+        <a href="https://github.com/absolutetanka/poker-hand-history-bot">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+
+</body>
+</html>
