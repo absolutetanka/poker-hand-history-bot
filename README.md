@@ -38,19 +38,36 @@ The output follows forum hand-review conventions:
 - **The pot at the start of each street** is calculated by the bot, not the LLM. It's shown only when every amount before it is known. Blinds count as posted, and antes and straddles aren't supported yet.
 - **The Missing line** is built by the bot from what's actually absent.
 
-While it works, the bot reacts to your message: 👀 while processing, ✅ when parsed, ⚠️ when parsed but information is missing, and ❌ when it failed.
+While it works, the bot reacts to your message: 👀 while processing, ✅ when parsed, ⚠️ when parsed but information is missing, ❌ when it failed, and ⏳ when a rate limit was hit.
+
+## Commands
+
+| Command | Who | What it does |
+| --- | --- | --- |
+| `/hand description:… audio:…` | Anyone | Formats a hand from text or an audio file, in any channel. |
+| `/setup add #channel` | Manage Server | Watches a channel, so every hand posted there is formatted. |
+| `/setup remove #channel`, `/setup list` | Manage Server | Stops watching a channel, or lists watched channels. |
+| `/help` | Anyone | Shows usage (only visible to you). |
+
+Slash commands register automatically when the bot starts.
 
 ## Setup
 
-1. **Node.js 20+**, then `npm install`.
+1. **Node.js 22.13+** (the settings database uses Node's built-in SQLite), then `npm install`.
 2. **Create the Discord bot** at <https://discord.com/developers/applications>:
    - Bot → **Reset Token**, then copy it into `DISCORD_BOT_TOKEN`.
-   - Bot → enable the **Message Content Intent**. This is required, because without it the bot sees empty messages.
-   - OAuth2 → URL Generator: scope `bot`; permissions **View Channels**, **Send Messages**, **Read Message History**, **Add Reactions**. Open the URL to invite the bot.
-3. **Get channel IDs.** Turn on Developer Mode in Discord, right-click the channel, and choose **Copy Channel ID**.
-4. **Get an OpenRouter key** at <https://openrouter.ai/keys>.
-5. Copy `.env.example` to `.env` and fill it in.
-6. `npm start`
+   - Bot → enable the **Message Content Intent**. Watched channels need it; `/hand` works without it.
+   - OAuth2 → URL Generator: scopes `bot` and `applications.commands`; permissions **View Channels**, **Send Messages**, **Read Message History**, **Add Reactions**. Open the URL to invite the bot.
+3. **Get an OpenRouter key** at <https://openrouter.ai/keys>.
+4. Copy `.env.example` to `.env` and fill it in.
+5. `npm start`, then run `/setup add #channel` in your server.
+
+### Deploying on Railway
+
+1. **New Project → Deploy from GitHub repo**, then paste your `.env` into the service's **Variables → Raw Editor**.
+2. **Add a volume** so `/setup` choices survive redeploys: right-click the service (or use **+ Create → Volume**), then mount it at `/data`.
+3. Add the variable `DATA_DIR=/data`.
+4. Every push to `main` redeploys automatically.
 
 ### Try the parser without Discord
 
@@ -65,7 +82,10 @@ Set `SHOW_JSON=1` to print the raw structured JSON as well.
 | Variable | Default | Notes |
 | --- | --- | --- |
 | `DISCORD_BOT_TOKEN` | — | Required |
-| `HAND_HISTORY_CHANNEL_IDS` | — | Required. Comma-separated. |
+| `HAND_HISTORY_CHANNEL_IDS` | — | Optional fixed channels, comma-separated. Normally servers use `/setup add`. |
+| `DATA_DIR` | `./data` | Folder for the SQLite settings database. Use a persistent volume in production. |
+| `RATE_LIMIT_USER_PER_HOUR` | `10` | Hands per user per hour (`0` = unlimited). |
+| `RATE_LIMIT_GUILD_PER_DAY` | `200` | Hands per server per day (`0` = unlimited). |
 | `OPENROUTER_API_KEY` | — | Required. Never commit or log this. |
 | `OPENROUTER_MODEL` | `openrouter/free` | |
 | `OPENROUTER_RESPONSE_FORMAT` | `json_schema` | `json_schema` (strict), `json_object`, or `none`. If the free router says no endpoint supports the requested parameters, relax this setting. Zod still validates every response. |
@@ -94,7 +114,11 @@ To add a provider, extend `SpeechToTextProvider` in `src/stt/` and register it i
 src/
   index.js                    Discord client wiring
   config.js                   Environment config
-  discord/messageHandler.js   Channel filter, reactions, replies, error handling
+  discord/messageHandler.js   Watched-channel messages: reactions, replies, rate limits
+  discord/commands.js         Slash commands: /hand, /setup, /help
+  discord/shared.js           Shared parse -> validate -> format pipeline and replies
+  storage/guildSettings.js    Per-server watched channels (SQLite)
+  utils/rateLimiter.js        Per-user and per-server limits
   discord/inputResolver.js    Text vs. voice note → { type, text }
   llm/llmClient.js            OpenRouter adapter: parse(input) → validated hand
   llm/prompt.js               Parser rules sent to the LLM

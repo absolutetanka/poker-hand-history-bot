@@ -5,6 +5,7 @@ import { createInputResolver } from '../src/discord/inputResolver.js';
 import { MESSAGES, REACTIONS, createMessageHandler, splitForDiscord } from '../src/discord/messageHandler.js';
 import { SpeechToTextError } from '../src/stt/SpeechToTextProvider.js';
 import { createLogger } from '../src/utils/logger.js';
+import { createRateLimiter } from '../src/utils/rateLimiter.js';
 import { canonicalHand, canonicalOutput, fullHand } from './fixtures.js';
 
 const CHANNEL = '111';
@@ -138,6 +139,43 @@ test('complete hand with nothing missing gets a success reaction', async () => {
   const message = fakeMessage({ content: 'hand' });
   await handler(message);
   assert.equal(message.reactionsAdded.at(-1), REACTIONS.success);
+});
+
+test('watched channels can come from a lookup function (e.g. /setup)', async () => {
+  const parsed = [];
+  const handler = createMessageHandler({
+    isWatchedChannel: (id) => id === 'from-setup',
+    getUserInput: createInputResolver({ speechToText: {} }),
+    parseHand: async (input) => {
+      parsed.push(input);
+      return canonicalHand;
+    },
+    logger: silent
+  });
+  await handler(fakeMessage({ content: 'hand', channelId: 'from-setup' }));
+  await handler(fakeMessage({ content: 'hand', channelId: 'other' }));
+  assert.equal(parsed.length, 1);
+});
+
+test('rate-limited messages get a wait notice instead of parsing', async () => {
+  const parsed = [];
+  const handler = createMessageHandler({
+    channelIds: new Set([CHANNEL]),
+    getUserInput: createInputResolver({ speechToText: {} }),
+    parseHand: async (input) => {
+      parsed.push(input);
+      return canonicalHand;
+    },
+    rateLimiter: createRateLimiter({ perUserPerHour: 1 }),
+    logger: silent
+  });
+  await handler(fakeMessage({ content: 'hand 1' }));
+  const second = fakeMessage({ content: 'hand 2' });
+  await handler(second);
+
+  assert.equal(parsed.length, 1);
+  assert.deepEqual(second.reactionsAdded, [REACTIONS.rateLimited]);
+  assert.match(second.replies[0], /hourly hand limit/);
 });
 
 test('long output is split under the Discord limit', () => {

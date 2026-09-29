@@ -1,62 +1,34 @@
-import { HandHistorySchema } from '../llm/handHistorySchema.js';
-import { formatHandHistory } from '../poker/formatter.js';
-import { analyzeHand } from '../poker/handState.js';
 import { findAudioAttachment } from './inputResolver.js';
+import { MESSAGES, NO_MENTIONS, errorReply, runHandPipeline, splitForDiscord } from './shared.js';
+
+export { MESSAGES, splitForDiscord };
 
 export const REACTIONS = {
   processing: '👀',
   success: '✅',
   missing: '⚠️',
-  failure: '❌'
+  failure: '❌',
+  rateLimited: '⏳'
 };
-
-export const MESSAGES = {
-  noInput: 'I could not find any text or supported voice note to parse.',
-  parseFailed: 'I could not parse that hand. Please try again or provide a little more detail.',
-  sttFailed: 'I could not transcribe that voice note. Please try again or type the hand instead.',
-  sttDisabled: "Voice notes aren't enabled on this bot yet. Please type the hand instead."
-};
-
-const DISCORD_MAX_LENGTH = 2000;
-
-// Never let LLM- or user-derived text ping @everyone, roles, or users.
-const NO_MENTIONS = { parse: [], repliedUser: false };
-
-export function splitForDiscord(text, max = DISCORD_MAX_LENGTH) {
-  if (text.length <= max) return [text];
-
-  const chunks = [];
-  let current = '';
-  for (const line of text.split('\n')) {
-    const candidate = current ? `${current}\n${line}` : line;
-    if (candidate.length <= max) {
-      current = candidate;
-      continue;
-    }
-    if (current) chunks.push(current);
-    // A single line longer than the limit gets hard-wrapped.
-    let rest = line;
-    while (rest.length > max) {
-      chunks.push(rest.slice(0, max));
-      rest = rest.slice(max);
-    }
-    current = rest;
-  }
-  if (current) chunks.push(current);
-  return chunks;
-}
 
 /**
- * Wires Discord input to the parsing pipeline. Knows nothing about which LLM
+ * Handles hands posted in watched channels. Knows nothing about which LLM
  * or STT provider is in use.
+ *
+ * isWatchedChannel(channelId) decides which channels are processed; a plain
+ * `channelIds` Set is also accepted.
  */
 export function createMessageHandler({
+  isWatchedChannel,
   channelIds,
   getUserInput,
   parseHand,
+  rateLimiter = null,
   logger,
   useReactions = true
 }) {
+  const isWatched = isWatchedChannel ?? ((id) => channelIds.has(id));
+
   async function react(message, emoji) {
     if (!useReactions) return;
     try {
@@ -87,12 +59,20 @@ export function createMessageHandler({
 
   return async function handleMessage(message) {
     if (message.author?.bot) return; // covers the bot itself and other bots
-    if (!channelIds.has(message.channelId)) return;
+    if (!isWatched(message.channelId)) return;
 
     // Ignore empty messages and messages with only unsupported attachments
     // (e.g. images) rather than replying to everything posted in the channel.
     const hasText = Boolean(message.content?.trim());
     if (!hasText && !findAudioAttachment(message)) return;
+
+    const limit = rateLimiter?.take(message.author?.id, message.guildId);
+    if (limit && !limit.ok) {
+      logger.info(`Rate limited ${limit.scope} for message ${message.id}`);
+      await react(message, REACTIONS.rateLimited);
+      await reply(message, MESSAGES.rateLimited(limit)).catch(() => {});
+      return;
+    }
 
     try {
       await react(message, REACTIONS.processing);
@@ -109,22 +89,13 @@ export function createMessageHandler({
       logger.info(`Parsing ${input.type} hand from message ${message.id}`);
       logger.debug('Input text:', input.text);
 
-      const parsedHand = await parseHand(input);
-      const validatedHand = HandHistorySchema.parse(parsedHand);
-      const output = formatHandHistory(validatedHand);
+      const { output, missing } = await runHandPipeline(parseHand, input);
 
       await reply(message, output);
       await clearProcessing(message);
-      await react(message, analyzeHand(validatedHand).missing.length ? REACTIONS.missing : REACTIONS.success);
+      await react(message, missing.length ? REACTIONS.missing : REACTIONS.success);
     } catch (error) {
-      let text = MESSAGES.parseFailed;
-      if (error?.code === 'STT_DISABLED') {
-        logger.info(`Voice note in message ${message.id} ignored: STT_PROVIDER=none`);
-        text = MESSAGES.sttDisabled;
-      } else {
-        logger.error(`Failed to process message ${message.id}:`, error);
-        if (error?.name === 'SpeechToTextError') text = MESSAGES.sttFailed;
-      }
+      const text = errorReply(error, logger, `message ${message.id}`);
       try {
         await reply(message, text);
       } catch (replyError) {

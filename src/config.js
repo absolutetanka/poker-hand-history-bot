@@ -9,9 +9,22 @@ function parseIdList(value) {
   );
 }
 
+// Allows 0 (disables a limit), unlike `Number(x) || fallback`.
+function numberOr(value, fallback) {
+  const n = Number(value);
+  return value !== undefined && value !== '' && Number.isFinite(n) ? n : fallback;
+}
+
 export const config = {
   discordToken: process.env.DISCORD_BOT_TOKEN,
+  // Optional fixed channels (in addition to those chosen with /setup).
   channelIds: parseIdList(process.env.HAND_HISTORY_CHANNEL_IDS),
+  // Where the SQLite settings database lives. Use a persistent volume in production.
+  dataDir: process.env.DATA_DIR || './data',
+  rateLimits: {
+    perUserPerHour: numberOr(process.env.RATE_LIMIT_USER_PER_HOUR, 10),
+    perGuildPerDay: numberOr(process.env.RATE_LIMIT_GUILD_PER_DAY, 200)
+  },
   useReactions: (process.env.USE_REACTIONS ?? 'true').toLowerCase() !== 'false',
 
   openRouter: {
@@ -52,7 +65,6 @@ export const config = {
 export function assertRequiredConfig(cfg = config) {
   const missing = [];
   if (!cfg.discordToken) missing.push('DISCORD_BOT_TOKEN');
-  if (!cfg.channelIds.size) missing.push('HAND_HISTORY_CHANNEL_IDS');
   if (!cfg.openRouter.apiKey) missing.push('OPENROUTER_API_KEY');
 
   if (missing.length) {
