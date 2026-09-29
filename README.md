@@ -145,3 +145,8 @@ The tests cover the canonical formatter output, schema parity, the OpenRouter re
 - Normalization after validation only rewrites notation. Hand tokens it can't read unambiguously, such as a bare `22` that could be a chip amount, are left as they are.
 - Replies turn off all mentions, so text from the LLM or the user can't ping `@everyone`.
 - v0.1 leaves out strategy advice, persistence, slash commands, and pot reconstruction (spec §26).
+
+## Legal
+
+- [Terms of Service](TERMS.md)
+- [Privacy Policy](PRIVACY.md)
