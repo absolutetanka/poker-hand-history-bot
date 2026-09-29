@@ -82,9 +82,21 @@
       opacity: .6;
     }
     .avatar {
+      display: block; margin: 0 auto;
       width: 120px; height: 120px; border-radius: 50%;
       box-shadow: 0 10px 30px rgba(0,0,0,.35);
       border: 3px solid rgba(216,178,90,.6);
+    }
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      margin: 20px 0 0; padding: 6px 14px;
+      border: 1px solid rgba(216,178,90,.7); border-radius: 999px;
+      background: rgba(11,61,37,.55); color: #f1dca6;
+      font-size: .85rem; font-weight: 600; letter-spacing: .01em;
+    }
+    .badge .dot {
+      width: 8px; height: 8px; border-radius: 50%; background: #e9b949;
+      box-shadow: 0 0 0 3px rgba(233,185,73,.25);
     }
     .hero h1 {
       font-size: clamp(2.2rem, 6vw, 3.4rem);
@@ -181,6 +193,7 @@
   <header class="hero">
     <div class="wrap">
       <img class="avatar" src="avatar.png" alt="HandHistory bot avatar: an ace of spades with a hand-history sheet and a poker chip">
+      <p class="badge"><span class="dot" aria-hidden="true"></span> Early development: expect rough edges</p>
       <h1>HandHistory</h1>
       <p class="lead">Type or say a poker hand in plain words. HandHistory turns it into a clean, forum-style hand history, right in your Discord server.</p>
       <a class="cta" href="https://discord.com/oauth2/authorize?client_id=1554264654241472564">
